@@ -13,36 +13,86 @@
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script>
-    const topLeft = [59.54638, 10.76535];
-    const bottomRight = [59.53559, 10.79354];
+    // --- Georeferanse (fra PGW-konverteringen) ---
+    const topLeft = [59.54638, 10.76535];      // [lat, lon]
+    const bottomRight = [59.53559, 10.79354];  // [lat, lon]
+
+    // Viktig: må matche filnavnet i repoet (store/små bokstaver teller)
     const imageUrl = 'Turkart.jpeg';
-    const imageBounds = [bottomRight, topLeft];
+    const imageBounds = [bottomRight, topLeft]; // sør-vest, nord-øst
 
-    const map = L.map('map').fitBounds(imageBounds);
+    // Opprett kart og legg på bildet
+    const map = L.map('map', {
+      zoomControl: true
+    }).fitBounds(imageBounds);
+
     L.imageOverlay(imageUrl, imageBounds).addTo(map);
-    map.setMaxBounds(imageBounds);
+    map.setMaxBounds(imageBounds); // hold innenfor bildet
 
-    map.locate({ setView: false, watch: true, maxZoom: 20, marker: false });
-
-    let gpsMarker, accuracyCircle;
-    map.on('locationfound', (e) => {
-      if (!gpsMarker) gpsMarker = L.marker(e.latlng).addTo(map);
-      else gpsMarker.setLatLng(e.latlng);
-
-      if (!accuracyCircle) accuracyCircle = L.circle(e.latlng, { radius: e.accuracy, color: 'blue', fillOpacity: 0.2 }).addTo(map);
-      else accuracyCircle.setLatLng(e.latlng).setRadius(e.accuracy);
+    // --- GPS: EGEN markør + nøyaktighetssirkel ---
+    // Merk: Leaflet core legger IKKE inn markør automatisk, så vi lager kun én selv.
+    const gpsIcon = L.icon({
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      shadowSize: [41, 41]
     });
 
-    map.on('locationerror', () => alert("Kunne ikke hente GPS-posisjon"));
+    let gpsMarker = null;
+    let accuracyCircle = null;
+
+    function onLocationFound(e) {
+      console.log('GPS:', e.latlng, 'accuracy(m):', Math.round(e.accuracy));
+      if (!gpsMarker) {
+        gpsMarker = L.marker(e.latlng, { icon: gpsIcon }).addTo(map);
+      } else {
+        gpsMarker.setLatLng(e.latlng);
+      }
+
+      if (!accuracyCircle) {
+        accuracyCircle = L.circle(e.latlng, { radius: e.accuracy, color: 'blue', fillOpacity: 0.2 }).addTo(map);
+      } else {
+        accuracyCircle.setLatLng(e.latlng).setRadius(e.accuracy);
+      }
+    }
+
+    function onLocationError(err) {
+      alert("Kunne ikke hente GPS-posisjon: " + (err && err.message ? err.message : ""));
+    }
+
+    map.on('locationfound', onLocationFound);
+    map.on('locationerror', onLocationError);
+
+    // Start sporing (Leaflet core har ikke en "marker"-opsjon – vi håndterer markør selv)
+    map.locate({ setView: false, watch: true, enableHighAccuracy: true, maxZoom: 20 });
+
+    // --- (Valgfritt) Legg tilbake POIs her hvis du vil, men bruk røde ikoner for å skille fra GPS ---
+    /*
+    const redIcon = new L.Icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
 
     const pois = [
       { lat: 59.542, lon: 10.78, title: "Hytte" },
       { lat: 59.544, lon: 10.77, title: "Gapahuk" }
     ];
-    pois.forEach(p => L.marker([p.lat, p.lon]).addTo(map).bindPopup(p.title));
+    pois.forEach(p => L.marker([p.lat, p.lon], { icon: redIcon }).addTo(map).bindPopup(p.title));
+    */
 
+    // PWA service worker (øyeblikkelig versjonsbytte)
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('sw.js?version=3');
+      navigator.serviceWorker.register('sw.js?version=4').then(() => {
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+        }
+      });
     }
   </script>
 </body>
