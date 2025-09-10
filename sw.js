@@ -1,5 +1,7 @@
-const CACHE_NAME = "turkart-cache-v3";
+const CACHE_NAME = "turkart-cache-v4";
 const CORE_ASSETS = ["./", "./index.html", "./manifest.json", "./Turkart.jpeg"];
+// 
+
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(CORE_ASSETS)));
